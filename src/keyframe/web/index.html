@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="local-token" content="__LOCAL_TOKEN__">
+<title>冠脉关键帧 · 本地工作台</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="/"><span class="brandmark">⌁</span><span>冠脉关键帧<span class="brand-sub">研究工作台</span></span></a><div class="local"><span class="dot"></span>本机处理 <span class="header-divider">/</span> CPU ONLY</div></header>
+<div class="workspace">
+<aside class="sidebar">
+ <div class="side-heading"><span class="eyebrow">DICOM LIBRARY</span><span id="fileCount" class="count">0</span></div>
+ <h2>影像文件夹</h2><p class="muted small">选择文件夹，点击一个序列开始分析。</p>
+ <button id="importFolder" class="button primary full"><span>＋</span> 导入文件夹</button>
+ <button id="importFiles" class="button secondary full">或选择 DICOM 文件</button>
+ <input id="folderInput" type="file" webkitdirectory multiple hidden>
+ <input id="fileInput" type="file" multiple hidden>
+ <div id="folderName" class="folder-name">尚未选择文件夹</div>
+ <label class="search"><span>⌕</span><input id="search" type="search" placeholder="搜索文件名或相对路径" aria-label="搜索文件"></label>
+ <div id="fileList" class="file-list"><div class="library-empty"><span class="outline-icon">▤</span><p>你的影像列表将显示在这里</p><span>支持多帧 DICOM · 子目录</span></div></div>
+ <div class="side-footer"><span class="dot"></span><span>文件仅传给本机分析服务<br>原始文件保持不变</span></div>
+</aside>
+<main>
+ <div class="page-heading"><div><span class="eyebrow">CORONARY KEYFRAME EXPLORER</span><h1>冠脉 DICOM 关键帧分析</h1><p class="muted">查看候选帧、滤波响应和各算法的 CPU 耗时。</p></div><span class="badge">第二轮算法 · PoC</span></div>
+ <section class="settings" aria-label="分析设置">
+  <label class="method-setting">分析方法<select id="method" aria-label="分析方法">
+   <optgroup label="第二轮算法">
+    <option value="round2:contrast_frangi_fast" selected>充盈 + 优化 Frangi</option>
+    <option value="round2:contrast_frangi">充盈 + 原版 Frangi</option>
+    <option value="round2:contrast_sobel">充盈 + Sobel</option>
+    <option value="round2:contrast_blackhat">充盈 + Black-hat</option>
+    <option value="round2:contrast_blackhat_motion">充盈 + Black-hat + 运动</option>
+   </optgroup>
+   <optgroup label="第一轮算法">
+    <option value="legacy:multi_feature">多指标融合</option>
+    <option value="legacy:contrast_frangi">充盈 + Frangi（第一轮）</option>
+    <option value="legacy:contrast_sato">充盈 + Sato</option>
+    <option value="legacy:contrast_only">仅充盈评分</option>
+    <option value="legacy:frangi_only">仅 Frangi 评分</option>
+    <option value="legacy:sato_only">仅 Sato 评分</option>
+    <option value="legacy:contrast_frangi_motion">充盈 + Frangi + 运动</option>
+    <option value="legacy:contrast_sato_motion">充盈 + Sato + 运动</option>
+   </optgroup>
+  </select></label>
+  <label>分析最大边<select id="size"><option value="128">128 px</option><option value="256" selected>256 px · 推荐起点</option><option value="512">512 px</option><option value="1024">1024 px</option></select></label>
+  <label>候选数量<select id="topK"><option value="1">Top 1</option><option value="3" selected>Top 3</option><option value="5">Top 5</option></select></label>
+  <label>性能测量<select id="repeat"><option value="1">单次耗时</option><option value="3">预热 + 重复 3 次</option><option value="5">预热 + 重复 5 次</option><option value="10">预热 + 重复 10 次</option></select></label>
+  <label class="check"><input id="compare" type="checkbox"><span id="compareLabel">对比第二轮五种算法</span></label>
+ </section>
+ <details id="round2Options" class="experiment-settings">
+  <summary>第二轮实验参数</summary>
+  <div class="settings">
+   <label>优化 Frangi 尺度<select id="scaleCount" aria-label="优化 Frangi 尺度"><option value="0">沿用配置</option><option value="2">2 尺度 [1, 2]</option><option value="3">3 尺度 [1, 2, 3]</option></select></label>
+   <label>Black-hat 结构元素<select id="blackhatSize" aria-label="Black-hat 结构元素"><option value="0">沿用配置</option><option value="5">5 × 5</option><option value="9">9 × 9</option><option value="15">15 × 15</option></select></label>
+   <label>参数矩阵<select id="matrixRepeat" aria-label="参数矩阵"><option value="0">关闭</option><option value="1">每种配置测量 1 次</option><option value="2">每种配置测量 2 次</option></select></label>
+   <label class="check"><input id="fillingFallback" type="checkbox" checked>用局部血管响应校验充盈区间</label>
+   <label class="check"><input id="endDiastole" type="checkbox">舒张末期辅助排序</label>
+  </div>
+  <p class="muted small">矩阵比较分析最大边 256 / 512 px、两种尺度组合和三种 Black-hat 核，耗时单独统计。</p>
+ </details>
+ <div id="notice" class="notice" role="status" hidden></div>
+ <section id="emptyState" class="empty-state"><div class="preview-art" aria-hidden="true"><div class="scan-line"></div><svg viewBox="0 0 220 190" fill="none"><path d="M105 15L98 50L121 85L108 121L124 173M99 50L65 74L43 121M120 85L153 106L179 153M108 121L78 150" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="120" cy="85" r="32" stroke="currentColor" stroke-width="1" stroke-dasharray="3 5" opacity=".4"/></svg><span class="scan-tag">FRAME EXPLORER</span></div><span class="eyebrow">准备就绪</span><h2>导入你的第一个影像序列</h2><p>从左侧选择本地文件夹，再点击一个 DICOM。<br>关键帧、评分曲线与输出文件会汇集在这里。</p><div class="steps"><span><b>01</b> 导入文件夹</span><i>→</i><span><b>02</b> 点击序列</span><i>→</i><span><b>03</b> 查看结果</span></div></section>
+ <section id="analysisPanel" hidden>
+  <div class="selection-heading"><div><span class="eyebrow">SELECTED SEQUENCE</span><h2 id="selectedName"></h2><p id="selectedMeta" class="muted small"></p></div><div class="actions"><button id="reanalyze" class="button secondary" disabled>重新分析</button><a id="downloadAll" class="button primary" hidden>下载全部输出 ↓</a></div></div>
+  <div id="progress" class="progress-panel" hidden><span class="spinner"></span><div><strong id="progressMessage">准备分析…</strong><p id="elapsed" class="muted small">已用时 0 秒</p></div><span class="progress-caption">请保持本地服务运行</span></div>
+  <div id="errorPanel" class="error-panel" role="alert" hidden></div>
+  <div id="resultContent" hidden>
+   <div class="metrics"><div><span>序列帧数</span><strong id="metricFrames">—</strong><small id="metricShape"></small></div><div><span>候选关键帧</span><strong id="metricSelected">—</strong><small>最多返回设定的 Top-K</small></div><div><span id="timeLabel">单次核心耗时</span><strong id="metricTime">—</strong><small id="metricFps"></small></div><div><span>峰值进程内存</span><strong id="metricMemory">—</strong><small>RSS · 10 ms 采样</small></div></div>
+   <nav class="tabs" aria-label="分析结果"><button data-tab="frames" class="active" aria-selected="true">阅片对比</button><button id="comparisonTab" data-tab="comparison" aria-selected="false" hidden>算法对比</button><button data-tab="report" aria-selected="false">HTML 报告</button><button data-tab="results" aria-selected="false">results.json</button><button data-tab="scores" aria-selected="false">scores.csv</button><button data-tab="benchmark" aria-selected="false">benchmark.json</button></nav>
+   <section id="tab-frames" class="tab-content">
+    <div class="section-title"><p id="candidateInfo" class="muted small"></p><span class="tag">帧序号从 0 开始</span></div>
+    <div class="preview-controls"><label id="previewMethodLabel" hidden>查看方法<select id="previewMethod" aria-label="查看方法"></select></label><label>影像显示<select id="responseView" aria-label="影像显示"></select></label></div>
+    <div id="stabilityInfo" class="muted small stability-info" hidden></div>
+    <div id="phaseInfo" class="preview-controls" aria-label="心动参考帧" hidden></div>
+    <div class="review-panes">
+     <section class="review-pane" aria-labelledby="sequenceTitle">
+      <div class="review-heading"><h3 id="sequenceTitle">DICOM 序列</h3><span id="sequencePosition" class="review-meta"></span></div>
+      <div class="review-viewport"><img id="sequenceImage" alt="DICOM 序列当前帧" hidden><p id="sequenceStatus" class="review-message" role="status"></p></div>
+      <div class="sequence-controls">
+       <input id="sequenceSlider" type="range" min="0" max="0" value="0" aria-label="序列帧索引" disabled>
+       <div class="sequence-transport"><button id="sequencePrevious" type="button" class="button secondary" disabled>上一帧</button><button id="sequencePlay" type="button" class="button primary" disabled>播放</button><button id="sequenceNext" type="button" class="button secondary" disabled>下一帧</button></div>
+      </div>
+     </section>
+     <section class="review-pane" aria-labelledby="candidateTitle">
+      <div class="review-heading"><h3 id="candidateTitle">候选关键帧</h3><span id="candidatePosition" class="review-meta"></span></div>
+      <div class="review-viewport">
+       <button id="candidatePicture" class="review-picture" type="button" aria-label="放大当前候选帧" hidden><img id="candidateImage" alt="当前候选关键帧"></button>
+       <p id="candidateEmpty" class="review-message" hidden></p>
+      </div>
+      <div class="candidate-controls"><div id="candidateList" class="candidate-list" aria-label="选择候选关键帧"></div><a id="downloadFrame" class="text-link" hidden>下载 PNG</a></div>
+     </section>
+    </div>
+    <details class="curve-details" open><summary id="scoreCurveLabel">查看逐帧评分曲线</summary><img id="scoreCurve" class="curve" alt="逐帧特征与最终评分曲线"></details>
+   </section>
+   <section id="tab-comparison" class="tab-content" hidden>
+    <div class="section-title"><div><h3>算法对比</h3><p id="comparisonInfo" class="muted small"></p></div></div>
+    <div id="methodTable" class="table-scroll"></div>
+    <img id="comparisonImage" class="curve" alt="各算法候选关键帧并排对比" loading="lazy">
+    <section id="matrixResult" hidden><h3>参数矩阵</h3><p id="matrixSummary" class="muted small"></p><div id="matrixTable" class="table-scroll"></div></section>
+   </section>
+   <section id="tab-report" class="tab-content" hidden><div class="section-title"><h3>完整实验报告</h3><a id="openReport" class="text-link" target="_blank" rel="noopener">在新标签页打开 ↗</a></div><iframe id="reportFrame" title="DICOM 实验报告" sandbox="allow-same-origin"></iframe></section>
+   <section id="tab-results" class="tab-content" hidden><div class="section-title"><h3>选择结果与参数</h3><a id="downloadResults" class="text-link">下载 JSON ↓</a></div><pre id="resultsText" class="json-view"></pre></section>
+   <section id="tab-scores" class="tab-content" hidden><div class="section-title"><div><h3>逐帧特征数据</h3><p class="muted small">预览前 100 帧；完整数据与全部特征列见 CSV 下载。</p></div><a id="downloadScores" class="text-link">下载完整 CSV ↓</a></div><div id="scoresTable" class="table-scroll"></div></section>
+   <section id="tab-benchmark" class="tab-content" hidden><div class="section-title"><div><h3>处理耗时与资源占用</h3><p class="muted small">核心耗时涵盖解码、预处理、评分和关键帧选择。参数矩阵、报告导出和预热单独统计。</p></div><div><a id="downloadBenchmark" class="text-link">单次 JSON ↓</a> <a id="downloadRepeated" class="text-link" hidden>重复测试 JSON ↓</a></div></div><div id="benchmarkSummary"></div><div id="stageTable" class="table-scroll"></div><details><summary>查看完整 benchmark.json</summary><pre id="benchmarkText" class="json-view"></pre></details></section>
+  </div>
+ </section>
+ <footer class="main-footer"><span>研究验证工具，候选帧需要人工复核。评分为相对排序，不代表概率。</span><span>影像及导出文件仍可能含有敏感医疗信息。</span></footer>
+</main>
+</div>
+<dialog id="imageDialog"><button id="closeImage" class="button secondary">关闭 ✕</button><img id="largeImage" alt="放大的关键帧"><p id="largeCaption"></p></dialog>
+<script src="/app.js"></script>
+</body></html>

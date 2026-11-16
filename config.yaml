@@ -1,0 +1,47 @@
+preprocessing:
+  max_size: 256
+  roi: null  # [x, y, width, height], original pixel coordinates
+  percentiles: [1, 99]
+  denoise_sigma: 0.6
+  clahe: false
+contrast:
+  reference: median  # median, low_motion, adaptive
+  reference_frames: 5
+  smooth_sigma: 1.2
+  min_dynamic: 0.012
+  threshold_fraction: 0.45
+  min_interval_frames: 3
+  adaptive_alpha: 0.03
+vessel:
+  sigmas: [1, 2, 3]
+  black_ridges: true
+  frangi_gamma: 0.03  # fixed across frames; no per-frame automatic gamma
+  response_threshold: 0.02
+  candidate_only: true
+sharpness:
+  region: full  # full (after ROI crop), vessel
+motion:
+  max_corners: 80
+  roi: null  # [x,y,width,height] in processed image coordinates
+selection:
+  top_k: 3
+  min_frame_distance: 5
+  max_similarity: 0.995
+  preserve_intervals: true
+  min_vessel_score: 0.0001
+weights:
+  vessel: 0.45
+  contrast: 0.3
+  sharpness: 0.2
+  motion: 0.05
+round2:
+  optimized_sigmas: [1, 2, 3]
+  sobel_threshold: 0.05
+  sobel_background_threshold: 0.05  # null disables the mask
+  blackhat_size: 9                   # odd, processed-image pixels
+  blackhat_shape: ellipse
+  blackhat_threshold: 0.03
+  score_smooth_sigma: 0.8            # frames, within each filling interval
+  filling_fallback: false
+  end_diastole: false
+  end_diastole_weight: 0.03         # scales the image phase score (0 to 0.5) after smoothing
